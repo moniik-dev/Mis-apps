@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- TAREA 1: Cambio de nombre -->
+    <title>Flashky - Flashcards Inteligentes</title>
+    <style>
+        :root {
+            --color-primario: #4a90e2;
+            --color-secundario: #50e3c2;
+            --color-fondo: #f4f7f6;
+            --color-superficie: #ffffff;
+            --color-texto: #333;
+            --color-error: #e74c3c;
+            --color-correcto: #2ecc71;
+            --color-editar: #f39c12;
+            --color-racha: #ffc107;
+            --sombra: 0 4px 12px rgba(0,0,0,0.1);
+            --radio-borde: 12px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            margin: 0;
+            background-color: var(--color-fondo);
+            color: var(--color-texto);
+            line-height: 1.6;
+        }
+
+        .contenedor-principal {
+            max-width: 1000px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap; /* Para que se adapte en pantallas pequeñas */
+            gap: 15px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid var(--color-primario);
+        }
+
+        header h1 { color: var(--color-primario); margin: 0; }
+        .header-controles { display: flex; gap: 10px; align-items: center; }
+        #info-usuario { font-size: 0.9em; color: #555; }
+        #info-usuario strong { color: var(--color-primario); }
+
+        .vista { display: none; }
+        .vista.activa { display: block; }
+
+        .boton {
+            background-color: var(--color-primario);
+            color: white; border: none; padding: 12px 20px;
+            border-radius: var(--radio-borde); cursor: pointer;
+            font-size: 1em; transition: all 0.3s ease;
+            margin-top: 5px; /* Pequeño margen para botones apilados */
+        }
+        .boton:hover { background-color: #357abd; }
+        .boton:active { transform: scale(0.98); }
+        .boton-secundario { background-color: #6c757d; }
+        .boton-secundario:hover { background-color: #5a6268; }
+        .boton-repaso { background-color: var(--color-secundario); }
+        .boton-repaso:hover { background-color: #48c9b0; }
+        .boton-eliminar { background-color: var(--color-error); }
+        .boton-eliminar:hover { background-color: #c0392b; }
+        .boton-editar { background-color: var(--color-editar); }
+        .boton-editar:hover { background-color: #d68910; }
+
+        input[type="text"], input[type="password"], textarea {
+            width: 100%; padding: 12px; margin-bottom: 15px;
+            border: 1px solid #ccc; border-radius: var(--radio-borde);
+            box-sizing: border-box; font-size: 1em;
+        }
+        textarea { resize: vertical; min-height: 80px; }
+
+        .grupo-formulario {
+            background-color: var(--color-superficie); padding: 25px;
+            border-radius: var(--radio-borde); box-shadow: var(--sombra);
+            margin-bottom: 30px;
+        }
+        .grupo-formulario .controles-login {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        h2, h3 { color: var(--color-primario); }
+
+        #info-racha {
+            background-color: var(--color-superficie);
+            text-align: center;
+            font-size: 1.1em;
+            color: #555;
+        }
+        #info-racha p { margin: 5px 0; }
+        #info-racha strong { color: var(--color-racha); }
+
+        /* Dashboard */
+        #lista-mazos {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        .mazo-card {
+            background-color: var(--color-superficie); padding: 20px;
+            border-radius: var(--radio-borde); box-shadow: var(--sombra);
+            cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease;
+            display: flex; flex-direction: column; justify-content: space-between;
+        }
+        .mazo-card:hover { transform: translateY(-5px); box-shadow: 0 8px 16px rgba(0,0,0,0.15); }
+        .mazo-card h3 { margin: 0 0 10px 0; }
+        .mazo-info { font-size: 0.9em; color: #666; }
+
+        /* Vista Mazo */
+        #header-vista-mazo {
+            display: flex; justify-content: space-between; align-items: center;
+            flex-wrap: wrap; gap: 10px; margin-bottom: 20px;
+        }
+        #header-vista-mazo-titulo {
+            display: flex; align-items: center; gap: 15px;
+        }
+        #boton-editar-nombre-mazo { font-size: 0.8em; padding: 6px 10px; }
+        .tarjeta-gestion-item {
+            background-color: #fff; border: 1px solid #eee;
+            padding: 15px; border-radius: 8px; margin-bottom: 10px;
+            display: flex; justify-content: space-between; align-items: center; gap: 15px;
+        }
+        .tarjeta-gestion-item .contenido { flex-grow: 1; }
+        .tarjeta-gestion-item .contenido p { margin: 0; }
+        .tarjeta-gestion-item .acciones .boton { padding: 8px 12px; font-size: 0.9em; }
+
+        /* Vista Repaso */
+        .flashcard-contenedor { perspective: 1000px; height: 300px; margin-bottom: 20px; cursor: pointer; }
+        .flashcard {
+            width: 100%; height: 100%; position: relative;
+            transform-style: preserve-3d; transition: transform 0.6s;
+            background-color: var(--color-superficie); box-shadow: var(--sombra);
+            border-radius: var(--radio-borde);
+        }
+        .flashcard.flipped { transform: rotateY(180deg); }
+        .flashcard-lado {
+            position: absolute; width: 100%; height: 100%;
+            backface-visibility: hidden; display: flex; justify-content: center;
+            align-items: center; padding: 20px; box-sizing: border-box; font-size: 1.5em; text-align: center;
+        }
+        .flashcard-reverso { transform: rotateY(180deg); }
+
+        #controles-repaso { text-align: center; }
+        #controles-calificacion {
+            margin-top: 20px; display: flex; justify-content: center;
+            gap: 15px;
+        }
+        .boton-calif-mal { background-color: var(--color-error); }
+        .boton-calif-bien { background-color: var(--color-correcto); }
+        
+        #zona-progreso { margin-bottom: 20px; }
+        .barra-progreso-contenedor {
+            width: 100%; background-color: #e0e0e0; border-radius: 8px;
+            overflow: hidden; display: flex; height: 20px;
+        }
+        .barra-progreso-segmento { transition: width 0.5s ease-in-out; }
+        .barra-progreso-segmento.correctas { background-color: var(--color-correcto); }
+        .barra-progreso-segmento.incorrectas { background-color: var(--color-error); }
+        #estadisticas-texto { text-align: center; margin-top: 8px; color: #666; font-size: 0.9em; }
+
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%; background-color: rgba(0,0,0,0.6);
+            z-index: 1000; justify-content: center; align-items: center;
+        }
+        .modal-contenido {
+            background: white; padding: 30px; border-radius: var(--radio-borde);
+            width: 90%; max-width: 500px; box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+        }
+
+        #vista-login .grupo-formulario {
+            max-width: 400px;
+            margin: 50px auto;
+            text-align: center;
+        }
+        #vista-login p { margin-top: 20px; color: #666; }
+
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="contenedor-principal">
+        <header>
+            <h1>Flashky</h1>
+            <div class="header-controles">
+                <div id="info-usuario" style="display: none;">Usuario: <strong id="nombre-usuario-actual"></strong></div>
+                <button id="boton-logout" class="boton boton-secundario" style="display: none;">Cerrar Sesión</button>
+                <button id="boton-toggle-audio" class="boton boton-secundario">Audio: ON</button>
+                <button id="boton-volver-dashboard" class="boton boton-secundario" style="display: none;">Volver</button>
+            </div>
+        </header>
+
+        <main>
+            <!-- VISTA 0: LOGIN - MODIFICADA -->
+            <section id="vista-login" class="vista activa">
+                <div class="grupo-formulario">
+                    <h2>Bienvenido a Flashky</h2>
+                    <p>Inicia sesión o crea una cuenta nueva.</p>
+                    <form id="form-login">
+                        <input type="text" id="input-username" placeholder="Nombre de usuario" required>
+                        <!-- NUEVO: Campo de contraseña -->
+                        <input type="password" id="input-password" placeholder="Contraseña" required>
+                        <div class="controles-login">
+                           <button type="submit" class="boton">Iniciar Sesión</button>
+                           <!-- NUEVO: Botón para crear cuenta -->
+                           <button type="button" id="boton-crear-cuenta" class="boton boton-secundario">Crear Cuenta</button>
+                        </div>
+                    </form>
+                    <p>O</p>
+                    <button id="boton-login-anonimo" class="boton boton-secundario">Continuar sin cuenta (Guardado Local)</button>
+                </div>
+            </section>
+
+            <!-- VISTA 1: DASHBOARD -->
+            <section id="vista-dashboard" class="vista">
+                <div id="info-racha" class="grupo-formulario"></div>
+                <div class="grupo-formulario">
+                    <h2>Añadir Nuevo Mazo</h2>
+                    <form id="form-nuevo-mazo">
+                        <input type="text" id="nombre-nuevo-mazo" placeholder="Nombre del mazo" required>
+                        <button type="submit" class="boton">Crear Mazo</button>
+                    </form>
+                </div>
+                <h2>Mis Mazos</h2>
+                <div id="lista-mazos"></div>
+            </section>
+
+            <!-- VISTA 2: DETALLES DE MAZO -->
+            <section id="vista-mazo" class="vista">
+                <div id="header-vista-mazo">
+                    <div id="header-vista-mazo-titulo">
+                        <h2 id="titulo-mazo-actual"></h2>
+                        <button id="boton-editar-nombre-mazo" class="boton boton-editar">Editar Nombre</button>
+                    </div>
+                    <div>
+                        <button id="boton-administrar-tarjetas" class="boton boton-secundario">Administrar Tarjetas</button>
+                        <button id="boton-iniciar-repaso" class="boton boton-repaso">Repasar</button>
+                    </div>
+                </div>
+                <div id="zona-gestion-tarjetas" style="display:none;">
+                    <div class="grupo-formulario">
+                        <h3>Añadir Nueva Tarjeta</h3>
+                        <form id="form-nueva-tarjeta">
+                            <textarea id="anverso-nueva-tarjeta" placeholder="Anverso (Pregunta)" required></textarea>
+                            <textarea id="reverso-nueva-tarjeta" placeholder="Reverso (Respuesta)" required></textarea>
+                            <button type="submit" class="boton">Añadir Tarjeta</button>
+                        </form>
+                    </div>
+                    <h3>Tarjetas en este mazo (<span id="contador-tarjetas">0</span>)</h3>
+                    <div id="lista-tarjetas-gestion"></div>
+                </div>
+            </section>
+
+            <!-- VISTA 3: REPASO -->
+            <section id="vista-repaso" class="vista">
+                 <h2 id="titulo-repaso"></h2>
+                 <p id="contador-repaso"></p>
+                 <div id="zona-progreso">
+                    <div class="barra-progreso-contenedor">
+                        <div id="barra-correctas" class="barra-progreso-segmento correctas"></div>
+                        <div id="barra-incorrectas" class="barra-progreso-segmento incorrectas"></div>
+                    </div>
+                    <div id="estadisticas-texto"></div>
+                 </div>
+                
+                 <div class="flashcard-contenedor" id="flashcard-contenedor">
+                    <div id="flashcard" class="flashcard">
+                        <div class="flashcard-lado flashcard-anverso" id="flashcard-anverso"></div>
+                        <div class="flashcard-lado flashcard-reverso" id="flashcard-reverso"></div>
+                    </div>
+                 </div>
+
+                 <div id="controles-repaso">
+                    <button id="boton-mostrar-respuesta" class="boton">Mostrar Respuesta</button>
+                    <div id="controles-calificacion" style="display: none;">
+                        <button class="boton boton-calif-mal" data-calidad="0">Otra Vez</button>
+                        <button class="boton boton-calif-bien" data-calidad="5">Bien</button>
+                    </div>
+                 </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- MODAL PARA EDITAR TARJETA -->
+    <div id="modal-editar-tarjeta" class="modal-overlay">
+        <div class="modal-contenido">
+            <h2>Editar Tarjeta</h2>
+            <form id="form-editar-tarjeta">
+                <textarea id="editar-anverso" required></textarea>
+                <textarea id="editar-reverso" required></textarea>
+                <input type="hidden" id="editar-tarjeta-id">
+                <button type="submit" class="boton">Guardar Cambios</button>
+                <button type="button" id="boton-cancelar-edicion" class="boton boton-secundario">Cancelar</button>
+            </form>
+        </div>
+    </div>
+
+    <footer>
+        <p>Créditos: Mónica Mura.</p>
+    </footer>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- ESTADO GLOBAL Y VARIABLES ---
+        // MODIFICADO: Estructura de appDB para incluir contraseña
+        // IMPORTANTE: Guardar contraseñas en texto plano en localStorage es INSEGURO.
+        // Esto es solo para fines demostrativos en un entorno local.
+        // En una aplicación real, se deben usar hashes de contraseñas y un backend seguro.
+        let appDB = { users: { /* username: { password: '...', mazos: [], rachaData: [] } */ }, anonymous: { mazos: [], rachaData: [] } };
+        let currentUser = null;
+        let mazos = [];
+        let rachaData = [];
+        let mazoActualIndex = -1;
+        let vozEspañola = null;
+        let sesionRepaso = { tarjetas: [], tarjetaActualIndex: -1, tarjetaActual: null, correctas: 0, incorrectas: 0 };
+        let audioHabilitado = true;
+
+        // --- REFERENCIAS AL DOM ---
+        const vistas = { 
+            login: document.getElementById('vista-login'),
+            dashboard: document.getElementById('vista-dashboard'), 
+            mazo: document.getElementById('vista-mazo'), 
+            repaso: document.getElementById('vista-repaso') 
+        };
+        const botonVolverDashboard = document.getElementById('boton-volver-dashboard');
+        const botonToggleAudio = document.getElementById('boton-toggle-audio');
+        const infoRacha = document.getElementById('info-racha');
+        // Login
+        const formLogin = document.getElementById('form-login');
+        const inputUsername = document.getElementById('input-username');
+        const inputPassword = document.getElementById('input-password'); // NUEVO
+        const botonCrearCuenta = document.getElementById('boton-crear-cuenta'); // NUEVO
+        const botonLoginAnonimo = document.getElementById('boton-login-anonimo');
+        const infoUsuario = document.getElementById('info-usuario');
+        const nombreUsuarioActual = document.getElementById('nombre-usuario-actual');
+        const botonLogout = document.getElementById('boton-logout');
+        // Dashboard
+        const formNuevoMazo = document.getElementById('form-nuevo-mazo');
+        const inputNombreMazo = document.getElementById('nombre-nuevo-mazo');
+        const listaMazos = document.getElementById('lista-mazos');
+        // Vista Mazo
+        const tituloMazoActual = document.getElementById('titulo-mazo-actual');
+        const botonEditarNombreMazo = document.getElementById('boton-editar-nombre-mazo');
+        const botonIniciarRepaso = document.getElementById('boton-iniciar-repaso');
+        const botonAdministrar = document.getElementById('boton-administrar-tarjetas');
+        const zonaGestion = document.getElementById('zona-gestion-tarjetas');
+        const formNuevaTarjeta = document.getElementById('form-nueva-tarjeta');
+        const inputAnverso = document.getElementById('anverso-nueva-tarjeta');
+        const inputReverso = document.getElementById('reverso-nueva-tarjeta');
+        const contadorTarjetas = document.getElementById('contador-tarjetas');
+        const listaTarjetasGestion = document.getElementById('lista-tarjetas-gestion');
+        // Vista Repaso
+        const tituloRepaso = document.getElementById('titulo-repaso');
+        const contadorRepaso = document.getElementById('contador-repaso');
+        const flashcardContenedor = document.getElementById('flashcard-contenedor');
+        const flashcard = document.getElementById('flashcard');
+        const flashcardAnverso = document.getElementById('flashcard-anverso');
+        const flashcardReverso = document.getElementById('flashcard-reverso');
+        const botonMostrarRespuesta = document.getElementById('boton-mostrar-respuesta');
+        const controlesCalificacion = document.getElementById('controles-calificacion');
+        const barraCorrectas = document.getElementById('barra-correctas');
+        const barraIncorrectas = document.getElementById('barra-incorrectas');
+        const estadisticasTexto = document.getElementById('estadisticas-texto');
+        // Modal Edición
+        const modalEditar = document.getElementById('modal-editar-tarjeta');
+        const formEditar = document.getElementById('form-editar-tarjeta');
+        const inputEditarAnverso = document.getElementById('editar-anverso');
+        const inputEditarReverso = document.getElementById('editar-reverso');
+        const inputEditarId = document.getElementById('editar-tarjeta-id');
+        const botonCancelarEdicion = document.getElementById('boton-cancelar-edicion');
+        
+        // --- SÍNTESIS DE VOZ Y CONTROL DE AUDIO ---
+        const inicializarVoz = () => {
+            const cargarVoces = () => {
+                let voces = window.speechSynthesis.getVoices();
+                vozEspañola = voces.find(v => v.lang.startsWith('es-ES') || v.lang.startsWith('es-MX') || v.lang.startsWith('es-US'));
+                if (!vozEspañola) vozEspañola = voces.find(v => v.lang.startsWith('es'));
+            };
+            cargarVoces();
+            if (window.speechSynthesis.onvoiceschanged !== undefined) {
+                window.speechSynthesis.onvoiceschanged = cargarVoces;
+            }
+        };
+
+        const hablar = (texto) => {
+            if (!audioHabilitado || !vozEspañola || !window.speechSynthesis) return;
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(texto);
+            utterance.voice = vozEspañola;
+            utterance.lang = vozEspañola.lang;
+            window.speechSynthesis.speak(utterance);
+        };
+        
+        botonToggleAudio.addEventListener('click', () => {
+            audioHabilitado = !audioHabilitado;
+            botonToggleAudio.textContent = audioHabilitado ? 'Audio: ON' : 'Audio: OFF';
+            localStorage.setItem('flashkyAudioHabilitado', audioHabilitado);
+            if(audioHabilitado) hablar("Audio activado");
+        });
+
+        const cargarPreferencias = () => {
+            const audioGuardado = localStorage.getItem('flashkyAudioHabilitado');
+            if (audioGuardado !== null) {
+                audioHabilitado = (audioGuardado === 'true');
+            }
+            botonToggleAudio.textContent = audioHabilitado ? 'Audio: ON' : 'Audio: OFF';
+        };
+
+        // --- LÓGICA DE ALMACENAMIENTO Y SESIÓN ---
+        const loadAppDatabase = () => {
+            const dbData = localStorage.getItem('flashkyAppDB');
+            if (dbData) appDB = JSON.parse(dbData);
+        };
+
+        const saveAppDatabase = () => {
+            localStorage.setItem('flashkyAppDB', JSON.stringify(appDB));
+        };
+
+        // MODIFICADO: La función login anterior ahora es iniciarSesionUsuario
+        const iniciarSesionUsuario = (username) => {
+            currentUser = username;
+            if (currentUser === 'anonymous') {
+                if (!appDB.anonymous) appDB.anonymous = { mazos: [], rachaData: [] };
+                mazos = appDB.anonymous.mazos;
+                rachaData = appDB.anonymous.rachaData || []; // Asegurar que rachaData existe
+                nombreUsuarioActual.textContent = "Anónimo";
+            } else {
+                // La existencia del usuario ya se ha verificado
+                mazos = appDB.users[currentUser].mazos;
+                rachaData = appDB.users[currentUser].rachaData || []; // Asegurar que rachaData existe
+                nombreUsuarioActual.textContent = currentUser;
+            }
+
+            infoUsuario.style.display = 'block';
+            botonLogout.style.display = 'inline-block';
+            renderizarDashboard();
+            mostrarVista('dashboard');
+        };
+
+        const logout = () => {
+            saveAppDatabase(); // Guardar cualquier cambio antes de salir
+            currentUser = null;
+            mazos = [];
+            rachaData = [];
+            mazoActualIndex = -1;
+            
+            infoUsuario.style.display = 'none';
+            botonLogout.style.display = 'none';
+            inputUsername.value = '';
+            inputPassword.value = '';
+            mostrarVista('login');
+        };
+        
+        const guardarDatos = () => {
+            if (!currentUser) return;
+            if (currentUser === 'anonymous') {
+                appDB.anonymous.mazos = mazos;
+                appDB.anonymous.rachaData = rachaData;
+            } else {
+                if(appDB.users[currentUser]) { // Doble chequeo por seguridad
+                    appDB.users[currentUser].mazos = mazos;
+                    appDB.users[currentUser].rachaData = rachaData;
+                }
+            }
+            saveAppDatabase();
+        };
+
+        // --- LÓGICA GENERAL ---
+        const mostrarVista = (nombreVista) => {
+            Object.values(vistas).forEach(vista => vista.classList.remove('activa'));
+            vistas[nombreVista].classList.add('activa');
+            const esVistaPrincipal = nombreVista === 'dashboard' || nombreVista === 'login';
+            botonVolverDashboard.style.display = esVistaPrincipal ? 'none' : 'inline-block';
+        };
+
+        // --- LÓGICA DE LA RACHA DE ESTUDIO ---
+        const registrarDiaDeEstudio = () => {
+            if (!currentUser) return;
+            const hoy = new Date().toISOString().slice(0, 10);
+            if (!rachaData.includes(hoy)) {
+                rachaData.push(hoy);
+                guardarDatos(); // La función guardarDatos ya se encarga de guardar la racha
+                renderizarInfoRacha();
+            }
+        };
+        
+        const renderizarInfoRacha = () => {
+            // Asegurarse de que rachaData es un array
+            const diasDeEstudio = Array.isArray(rachaData) ? rachaData : [];
+            const diasEstudioUnicos = [...new Set(diasDeEstudio)].sort();
+            let rachaActual = 0;
+            if (diasEstudioUnicos.length > 0) {
+                const hoy = new Date();
+                let diaActual = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+                for (let i = diasEstudioUnicos.length - 1; i >= 0; i--) {
+                    const diaEstudio = new Date(diasEstudioUnicos[i] + 'T00:00:00');
+                    if (diaEstudio.getTime() === diaActual.getTime()) {
+                        rachaActual++;
+                        diaActual.setDate(diaActual.getDate() - 1);
+                    } else if (diaEstudio.getTime() < diaActual.getTime()) {
+                        // Romper la racha si hay un día faltante
+                        break;
+                    }
+                }
+            }
+            infoRacha.innerHTML = `
+                <p>🔥 Racha actual: <strong>${rachaActual} día(s)</strong></p>
+                <p>🗓️ Total de días de estudio: <strong>${diasEstudioUnicos.length}</strong></p>
+            `;
+        };
+
+        // --- DASHBOARD ---
+        const renderizarDashboard = () => {
+            renderizarInfoRacha();
+            listaMazos.innerHTML = mazos.length === 0 ? '<p>Aún no tienes mazos. ¡Crea uno!</p>' : '';
+            mazos.forEach((mazo, index) => {
+                const aRepasar = mazo.tarjetas.filter(t => new Date(t.fechaRepaso) <= new Date()).length;
+                const card = document.createElement('div');
+                card.className = 'mazo-card';
+                card.dataset.index = index;
+                card.innerHTML = `<h3>${mazo.nombre}</h3><div class="mazo-info"><p>${mazo.tarjetas.length} tarjeta(s).</p><p><strong>${aRepasar}</strong> para repasar.</p></div>`;
+                card.addEventListener('click', () => abrirMazo(index));
+                listaMazos.appendChild(card);
+            });
+        };
+
+        formNuevoMazo.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const nombre = inputNombreMazo.value.trim();
+            if (nombre) {
+                mazos.push({ nombre, tarjetas: [] });
+                guardarDatos();
+                renderizarDashboard();
+                inputNombreMazo.value = '';
+            }
+        });
+
+        // --- VISTA MAZO Y GESTIÓN DE TARJETAS ---
+        const abrirMazo = (index) => {
+            mazoActualIndex = index;
+            renderizarVistaMazo();
+            mostrarVista('mazo');
+        };
+
+        const renderizarVistaMazo = () => {
+            if (mazoActualIndex < 0) return;
+            const mazo = mazos[mazoActualIndex];
+            tituloMazoActual.textContent = mazo.nombre;
+            contadorTarjetas.textContent = mazo.tarjetas.length;
+            renderizarListaGestion();
+        };
+
+        botonEditarNombreMazo.addEventListener('click', () => {
+            if(mazoActualIndex < 0) return;
+            const nombreAnterior = mazos[mazoActualIndex].nombre;
+            const nuevoNombre = prompt("Introduce el nuevo nombre para el mazo:", nombreAnterior);
+            if(nuevoNombre && nuevoNombre.trim() !== '' && nuevoNombre !== nombreAnterior) {
+                mazos[mazoActualIndex].nombre = nuevoNombre.trim();
+                guardarDatos();
+                renderizarVistaMazo();
+                renderizarDashboard(); 
+            }
+        });
+
+        const renderizarListaGestion = () => {
+            listaTarjetasGestion.innerHTML = '';
+            const mazo = mazos[mazoActualIndex];
+            if(mazo.tarjetas.length === 0) {
+                 listaTarjetasGestion.innerHTML = '<p>Este mazo no tiene tarjetas todavía.</p>';
+                 return;
+            }
+            mazo.tarjetas.forEach((tarjeta, index) => {
+                const item = document.createElement('div');
+                item.className = 'tarjeta-gestion-item';
+                item.innerHTML = `
+                    <div class="contenido">
+                        <p><strong>Anverso:</strong> ${tarjeta.anverso}</p>
+                        <p><strong>Reverso:</strong> ${tarjeta.reverso}</p>
+                    </div>
+                    <div class="acciones">
+                        <button class="boton boton-editar" data-index="${index}">Editar</button>
+                        <button class="boton boton-eliminar" data-index="${index}">Eliminar</button>
+                    </div>
+                `;
+                listaTarjetasGestion.appendChild(item);
+            });
+        };
+
+        botonAdministrar.addEventListener('click', () => {
+            zonaGestion.style.display = zonaGestion.style.display === 'none' ? 'block' : 'none';
+        });
+
+        formNuevaTarjeta.addEventListener('submit', e => {
+            e.preventDefault();
+            const anverso = inputAnverso.value.trim();
+            const reverso = inputReverso.value.trim();
+            if (anverso && reverso && mazoActualIndex >= 0) {
+                mazos[mazoActualIndex].tarjetas.push({
+                    id: Date.now(), anverso, reverso,
+                    fechaRepaso: new Date().toISOString(), intervalo: 0, factorFacilidad: 2.5
+                });
+                guardarDatos();
+                renderizarVistaMazo();
+                inputAnverso.value = '';
+                inputReverso.value = '';
+            }
+        });
+        
+        listaTarjetasGestion.addEventListener('click', e => {
+            const index = e.target.dataset.index;
+            if (e.target.classList.contains('boton-eliminar')) {
+                if (confirm('¿Estás seguro de que quieres eliminar esta tarjeta?')) {
+                    mazos[mazoActualIndex].tarjetas.splice(index, 1);
+                    guardarDatos();
+                    renderizarVistaMazo();
+                }
+            }
+            if (e.target.classList.contains('boton-editar')) {
+                abrirModalEdicion(index);
+            }
+        });
+
+        // --- LÓGICA DEL MODAL DE EDICIÓN ---
+        const abrirModalEdicion = (index) => {
+            const tarjeta = mazos[mazoActualIndex].tarjetas[index];
+            inputEditarAnverso.value = tarjeta.anverso;
+            inputEditarReverso.value = tarjeta.reverso;
+            inputEditarId.value = index;
+            modalEditar.style.display = 'flex';
+        };
+        
+        const cerrarModalEdicion = () => modalEditar.style.display = 'none';
+
+        formEditar.addEventListener('submit', e => {
+            e.preventDefault();
+            const index = inputEditarId.value;
+            mazos[mazoActualIndex].tarjetas[index].anverso = inputEditarAnverso.value.trim();
+            mazos[mazoActualIndex].tarjetas[index].reverso = inputEditarReverso.value.trim();
+            guardarDatos();
+            renderizarVistaMazo();
+            cerrarModalEdicion();
+        });
+
+        botonCancelarEdicion.addEventListener('click', cerrarModalEdicion);
+        modalEditar.addEventListener('click', e => {
+             if (e.target === modalEditar) cerrarModalEdicion();
+        });
+
+        // --- LÓGICA DE REPASO ---
+        botonIniciarRepaso.addEventListener('click', () => {
+            const mazo = mazos[mazoActualIndex];
+            let aRepasar = mazo.tarjetas.filter(t => new Date(t.fechaRepaso) <= new Date());
+            
+            if (aRepasar.length === 0) {
+                if(mazo.tarjetas.length > 0) {
+                    if (confirm('¡Felicidades! No tienes tarjetas pendientes. ¿Quieres hacer una sesión de práctica con todas las tarjetas del mazo?')) {
+                        aRepasar = [...mazo.tarjetas];
+                    } else { return; }
+                } else {
+                    alert('Este mazo no tiene tarjetas. Añade algunas primero.');
+                    return;
+                }
+            }
+            
+            sesionRepaso.tarjetas = aRepasar.sort(() => Math.random() - 0.5);
+            sesionRepaso.tarjetaActualIndex = -1;
+            sesionRepaso.correctas = 0;
+            sesionRepaso.incorrectas = 0;
+            actualizarBarraProgreso();
+            
+            tituloRepaso.textContent = `Repasando: ${mazo.nombre}`;
+            mostrarVista('repaso');
+            mostrarSiguienteTarjeta();
+        });
+
+        const mostrarSiguienteTarjeta = () => {
+            sesionRepaso.tarjetaActualIndex++;
+            contadorRepaso.textContent = `Tarjeta ${sesionRepaso.tarjetaActualIndex + 1} de ${sesionRepaso.tarjetas.length}`;
+
+            if (sesionRepaso.tarjetaActualIndex >= sesionRepaso.tarjetas.length) {
+                alert('¡Sesión de repaso completada!');
+                hablar('Sesión de repaso completada.');
+                botonVolverDashboard.click();
+                return;
+            }
+
+            sesionRepaso.tarjetaActual = sesionRepaso.tarjetas[sesionRepaso.tarjetaActualIndex];
+            
+            flashcard.classList.remove('flipped');
+            setTimeout(() => {
+                flashcardAnverso.textContent = sesionRepaso.tarjetaActual.anverso;
+                flashcardReverso.textContent = sesionRepaso.tarjetaActual.reverso;
+                hablar(sesionRepaso.tarjetaActual.anverso);
+            }, 300);
+
+            botonMostrarRespuesta.style.display = 'inline-block';
+            controlesCalificacion.style.display = 'none';
+        };
+        
+        const mostrarRespuesta = () => {
+            if(flashcard.classList.contains('flipped')) return;
+            flashcard.classList.add('flipped');
+            botonMostrarRespuesta.style.display = 'none';
+            controlesCalificacion.style.display = 'flex';
+            hablar(flashcardReverso.textContent);
+        };
+
+        botonMostrarRespuesta.addEventListener('click', mostrarRespuesta);
+        flashcardContenedor.addEventListener('click', mostrarRespuesta);
+
+        controlesCalificacion.addEventListener('click', (e) => {
+            if (e.target.tagName === 'BUTTON') {
+                const calidad = parseInt(e.target.dataset.calidad, 10);
+                if (calidad < 3) {
+                    sesionRepaso.incorrectas++;
+                    hablar("A repasar.");
+                } else {
+                    sesionRepaso.correctas++;
+                    hablar("¡Correcto!");
+                }
+                actualizarBarraProgreso();
+                actualizarTarjeta(calidad);
+                mostrarSiguienteTarjeta();
+            }
+        });
+
+        const actualizarBarraProgreso = () => {
+            const total = sesionRepaso.correctas + sesionRepaso.incorrectas;
+            const totalTarjetas = sesionRepaso.tarjetas.length;
+            if (total === 0) {
+                barraCorrectas.style.width = '0%';
+                barraIncorrectas.style.width = '0%';
+                estadisticasTexto.textContent = "¡Comienza a repasar!";
+                return;
+            }
+            const porcCorrectas = (sesionRepaso.correctas / totalTarjetas) * 100;
+            const porcIncorrectas = (sesionRepaso.incorrectas / totalTarjetas) * 100;
+            
+            barraCorrectas.style.width = `${porcCorrectas}%`;
+            barraIncorrectas.style.width = `${porcIncorrectas}%`;
+            
+            estadisticasTexto.textContent = `Progreso: ${total} de ${totalTarjetas} - Correctas: ${sesionRepaso.correctas}, Incorrectas: ${sesionRepaso.incorrectas}`;
+        };
+
+        const actualizarTarjeta = (calidad) => {
+            registrarDiaDeEstudio();
+
+            const tarjeta = sesionRepaso.tarjetaActual;
+            if (calidad < 3) { // Incorrecto
+                tarjeta.intervalo = 0;
+                tarjeta.factorFacilidad = Math.max(1.3, tarjeta.factorFacilidad - 0.2);
+            } else { // Correcto
+                if (tarjeta.intervalo === 0) tarjeta.intervalo = 1;
+                else if (tarjeta.intervalo === 1) tarjeta.intervalo = 6;
+                else tarjeta.intervalo = Math.round(tarjeta.intervalo * tarjeta.factorFacilidad);
+                tarjeta.factorFacilidad += (0.1 - (5 - calidad) * (0.08 + (5 - calidad) * 0.02));
+                if (tarjeta.factorFacilidad < 1.3) tarjeta.factorFacilidad = 1.3;
+            }
+            const proximaFecha = new Date();
+            proximaFecha.setDate(proximaFecha.getDate() + tarjeta.intervalo);
+            tarjeta.fechaRepaso = proximaFecha.toISOString();
+            
+            const indexOriginal = mazos[mazoActualIndex].tarjetas.findIndex(t => t.id === tarjeta.id);
+            if(indexOriginal !== -1) mazos[mazoActualIndex].tarjetas[indexOriginal] = tarjeta;
+            guardarDatos();
+        };
+
+        // --- INICIALIZACIÓN Y EVENTOS GLOBALES ---
+        const init = () => {
+            loadAppDatabase();
+            cargarPreferencias();
+            inicializarVoz();
+            mostrarVista('login');
+
+            botonVolverDashboard.addEventListener('click', () => {
+                mazoActualIndex = -1;
+                zonaGestion.style.display = 'none';
+                renderizarDashboard();
+                mostrarVista('dashboard');
+            });
+            
+            // MODIFICADO: Lógica para el formulario de login
+            formLogin.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const username = inputUsername.value.trim();
+                const password = inputPassword.value.trim();
+                
+                if (!username || !password) {
+                    alert('Por favor, introduce usuario y contraseña.');
+                    return;
+                }
+
+                if (appDB.users[username]) {
+                    if (appDB.users[username].password === password) {
+                        iniciarSesionUsuario(username);
+                    } else {
+                        alert('Contraseña incorrecta.');
+                    }
+                } else {
+                    alert('El usuario no existe. Por favor, crea una cuenta.');
+                }
+            });
+
+            // NUEVO: Lógica para el botón de crear cuenta
+            botonCrearCuenta.addEventListener('click', () => {
+                const username = inputUsername.value.trim();
+                const password = inputPassword.value.trim();
+
+                if (!username || !password) {
+                    alert('Por favor, introduce un nombre de usuario y una contraseña para crear la cuenta.');
+                    return;
+                }
+                
+                if (appDB.users[username]) {
+                    alert('Ese nombre de usuario ya existe. Por favor, elige otro.');
+                } else {
+                    appDB.users[username] = {
+                        password: password,
+                        mazos: [],
+                        rachaData: []
+                    };
+                    saveAppDatabase();
+                    alert('¡Cuenta creada con éxito! Ahora puedes iniciar sesión.');
+                    inputPassword.value = '';
+                }
+            });
+
+            botonLoginAnonimo.addEventListener('click', () => {
+                iniciarSesionUsuario('anonymous');
+            });
+
+            botonLogout.addEventListener('click', logout);
+        };
+        
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && vistas.repaso.classList.contains('activa')) {
+                e.preventDefault();
+                mostrarRespuesta();
+            }
+        });
+
+        init();
+    });
+    </script>
+</body>
+</html>
